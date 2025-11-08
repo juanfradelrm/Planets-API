@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Repositorio ECR para la API de Planetas (Version Desacoplada)'
+
+Resources:
+  PlanetsRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: planets-ecr-repo-desacoplada
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [{
+              "rulePriority": 1,
+              "description": "Mantener solo las últimas 5 imágenes",
+              "selection": {
+                "tagStatus": "any",
+                "countType": "imageCountMoreThan",
+                "countNumber": 5
+              },
+              "action": {
+                "type": "expire"
+              }
+            }]
+          }
+
+Outputs:
+  RepositoryUri:
+    Description: URI del repositorio ECR
+    Value: !Sub "${PlanetsRepository.RepositoryUri}"
+    Export:
+      Name: PlanetsRepositoryUriDesacoplada
+  
+  RepositoryName:
+    Description: Nombre del repositorio
+    Value: !Ref PlanetsRepository

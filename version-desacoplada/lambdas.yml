@@ -1,0 +1,354 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: API de Planetas desacoplada con Lambdas, API Gateway, API Key y hosting en S3
+
+Parameters:
+  CreatePlanetImage:
+    Type: String
+  GetAllPlanetsImage:
+    Type: String
+  GetPlanetByIdImage:
+    Type: String
+  UpdatePlanetImage:
+    Type: String
+  DeletePlanetImage:
+    Type: String
+  TableName:
+    Type: String
+  FrontendBucketName:
+    Type: String
+    Description: "Nombre del bucket donde se alojará el frontend"
+
+Resources:
+
+  # ===============================
+  # Funciones Lambda (Docker)
+  # ===============================
+  CreatePlanetFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: createPlanet
+      PackageType: Image
+      Code:
+        ImageUri: !Ref CreatePlanetImage
+      Role: arn:aws:iam::211125714007:role/LabRole
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+  GetAllPlanetsFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: getAllPlanets
+      PackageType: Image
+      Code:
+        ImageUri: !Ref GetAllPlanetsImage
+      Role: arn:aws:iam::211125714007:role/LabRole
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+  GetPlanetByIdFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: getPlanetById
+      PackageType: Image
+      Code:
+        ImageUri: !Ref GetPlanetByIdImage
+      Role: arn:aws:iam::211125714007:role/LabRole
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+  UpdatePlanetFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: updatePlanet
+      PackageType: Image
+      Code:
+        ImageUri: !Ref UpdatePlanetImage
+      Role: arn:aws:iam::211125714007:role/LabRole
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+  DeletePlanetFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: deletePlanet
+      PackageType: Image
+      Code:
+        ImageUri: !Ref DeletePlanetImage
+      Role: arn:aws:iam::211125714007:role/LabRole
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref TableName
+
+  # ===============================
+  # API Gateway
+  # ===============================
+  PlanetasApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: Planets-API-Decoupled
+
+  RootResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ParentId: !GetAtt PlanetasApi.RootResourceId
+      PathPart: planetas
+
+  PlanetByIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ParentId: !Ref RootResource
+      PathPart: "{id}"
+
+  # ===============================
+  # Métodos principales con API Key
+  # ===============================
+  CreatePlanetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref RootResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST  
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreatePlanetFunction.Arn}/invocations
+
+  GetAllPlanetsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref RootResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST  
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAllPlanetsFunction.Arn}/invocations
+
+  GetPlanetByIdMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST  
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetPlanetByIdFunction.Arn}/invocations
+
+  UpdatePlanetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST  
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdatePlanetFunction.Arn}/invocations
+
+  DeletePlanetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST  
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeletePlanetFunction.Arn}/invocations
+
+  # ===============================
+  # Métodos OPTIONS (CORS)
+  # ===============================
+  PlanetasOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref RootResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS,PUT,DELETE'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: '{}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PlanetasByIdOptionsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref PlanetasApi
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        RequestTemplates:
+          application/json: '{"statusCode":200}'
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS,PUT,DELETE'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: '{}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ===============================
+  # Permisos de invocación
+  # ===============================
+  CreatePlanetPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreatePlanetFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanetasApi}/*/*
+
+  GetAllPlanetsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetAllPlanetsFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanetasApi}/*/*
+
+  GetPlanetByIdPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetPlanetByIdFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanetasApi}/*/*
+
+  UpdatePlanetPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdatePlanetFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanetasApi}/*/*
+
+  DeletePlanetPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DeletePlanetFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${PlanetasApi}/*/*
+
+  # ===============================
+  # Deployment del API
+  # ===============================
+  ApiDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - CreatePlanetMethod
+      - GetAllPlanetsMethod
+      - GetPlanetByIdMethod
+      - UpdatePlanetMethod
+      - DeletePlanetMethod
+      - PlanetasOptionsMethod
+      - PlanetasByIdOptionsMethod
+    Properties:
+      RestApiId: !Ref PlanetasApi
+
+  ApiStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: prod
+      RestApiId: !Ref PlanetasApi
+      DeploymentId: !Ref ApiDeployment
+
+  # ===============================
+  # API Key + Usage Plan
+  # ===============================
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    DependsOn: ApiStage
+    Properties:
+      Name: PlanetasDecoupledApiKey
+      Enabled: true
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: ApiStage
+    Properties:
+      UsagePlanName: PlanetasDecoupledUsagePlan
+      ApiStages:
+        - ApiId: !Ref PlanetasApi
+          Stage: !Ref ApiStage
+      Throttle:
+        RateLimit: 10
+        BurstLimit: 5
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    DependsOn: UsagePlan
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+  # ===============================
+  # Bucket del Frontend
+  # ===============================
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref FrontendBucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: index.html
+
+Outputs:
+  ApiId:
+    Value: !Ref PlanetasApi
+  ApiUrl:
+    Value: !Sub https://${PlanetasApi}.execute-api.${AWS::Region}.amazonaws.com/prod/planetas
+  ApiKeyValue:
+    Description: Clave para acceder al CRUD de planetas
+    Value: !Ref ApiKey
+  FrontendBucket:
+    Value: !Ref FrontendBucket
+  FrontendUrl:
+    Value: !Sub http://${FrontendBucketName}.s3-website-${AWS::Region}.amazonaws.com

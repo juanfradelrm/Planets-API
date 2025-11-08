@@ -1,0 +1,151 @@
+{
+	"info": {
+		"_postman_id": "coupled-planets-api",
+		"name": "Planets API - Coupled (ECS Fargate)",
+		"description": "Colección para probar la arquitectura acoplada de Planets API usando ECS Fargate con Express.js",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "List All Planets",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{api_key_coupled}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{coupled_base_url}}/planets",
+					"host": [
+						"{{coupled_base_url}}"
+					],
+					"path": [
+						"planets"
+					]
+				},
+				"description": "Obtiene la lista de todos los planetas"
+			},
+			"response": []
+		},
+		{
+			"name": "Get Planet by ID",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{api_key_coupled}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{coupled_base_url}}/planets/1",
+					"host": [
+						"{{coupled_base_url}}"
+					],
+					"path": [
+						"planets",
+						"1"
+					]
+				},
+				"description": "Obtiene un planeta específico por su ID"
+			},
+			"response": []
+		},
+		{
+			"name": "Create Planet",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "x-api-key",
+						"value": "{{api_key_coupled}}",
+						"type": "text"
+					}
+				],
+				"body": {
+  				"mode": "raw",
+  				"raw": "{\n  \"name\": \"Tierra\",\n  \"type\": \"terrestre\",\n  \"diameter_km\": 12742,\n  \"distance_from_sun_km\": 149597870,\n  \"description\": \"El planeta donde se originó la vida conocida.\",\n  \"has_rings\": false,\n  \"number_of_moons\": 1,\n  \"discovered_year\": null\n}"
+				},
+				"url": {
+					"raw": "{{coupled_base_url}}/planets",
+					"host": [
+						"{{coupled_base_url}}"
+					],
+					"path": [
+						"planets"
+					]
+				},
+				"description": "Crea un nuevo planeta"
+			},
+			"response": []
+		},
+		{
+			"name": "Update Planet",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "x-api-key",
+						"value": "{{api_key_coupled}}",
+						"type": "text"
+					}
+				],
+				"body": {
+  					"mode": "raw",
+  					"raw": "{\n  \"name\": \"Tierra-actualizada\",\n  \"type\": \"terrestre\",\n  \"diameter_km\": 12742,\n  \"distance_from_sun_km\": 149597870,\n  \"description\": \"El planeta más habitado por ahora.\",\n  \"has_rings\": false,\n  \"number_of_moons\": 2,\n  \"discovered_year\": null\n}"
+				},
+				"url": {
+					"raw": "{{coupled_base_url}}/planets/1",
+					"host": [
+						"{{coupled_base_url}}"
+					],
+					"path": [
+						"planets",
+						"1"
+					]
+				},
+				"description": "Actualiza un planeta existente"
+			},
+			"response": []
+		},
+		{
+			"name": "Delete Planet",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "x-api-key",
+						"value": "{{api_key_coupled}}",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{coupled_base_url}}/planets/9",
+					"host": [
+						"{{coupled_base_url}}"
+					],
+					"path": [
+						"planets",
+						"9"
+					]
+				},
+				"description": "Elimina un planeta por su ID"
+			},
+			"response": []
+		}
+	]
+}

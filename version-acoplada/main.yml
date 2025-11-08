@@ -1,0 +1,400 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'API de Planetas - ECS Fargate + API Gateway REST + NLB con API Key'
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC donde desplegar
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subredes para ECS y NLB
+
+  VpcLinkSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subredes compatibles con API Gateway VPC Link
+
+  ImageUri:
+    Type: String
+    Description: URI de la imagen Docker en ECR
+
+Resources:
+
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group para ECS Fargate
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: planetas-cluster
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: planetas-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities: [FARGATE]
+      Cpu: '512'
+      Memory: '1024'
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ContainerDefinitions:
+        - Name: planetas-container
+          Image: !Ref ImageUri
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          Environment:
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
+            - Name: DYNAMODB_TABLE
+              Value: planets-shared
+            - Name: PORT
+              Value: '8080'
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: /ecs/planetas-api
+      RetentionInDays: 7
+
+  NetworkLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: planetas-nlb
+      Type: network
+      Scheme: internal
+      Subnets: !Ref SubnetIds
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: planetas-tg
+      Port: 8080
+      Protocol: TCP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+      HealthCheckIntervalSeconds: 30
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref NetworkLoadBalancer
+      Port: 8080
+      Protocol: TCP
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      ServiceName: planetas-service
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups: [!Ref ECSSecurityGroup]
+      LoadBalancers:
+        - ContainerName: planetas-container
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroup
+
+  VPCLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Name: planetas-vpc-link
+      TargetArns: [!Ref NetworkLoadBalancer]
+
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: planetas-api
+
+  ItemsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: planets
+      RestApiId: !Ref RestAPI
+
+  PlanetByIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !Ref ItemsResource
+      PathPart: "{id}"
+      RestApiId: !Ref RestAPI
+
+  HealthResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: health
+      RestApiId: !Ref RestAPI
+
+  # ==================== Métodos /planets ====================
+  
+  GetItemsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref ItemsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/planets"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+
+  PostPlanetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref ItemsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/planets"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+
+  OptionsItemsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref ItemsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ==================== Métodos /planets/{id} ====================
+
+  GetPlanetByIdMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/planets/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  PutPlanetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: PUT
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/planets/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  DeletePlanetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: DELETE
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/planets/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  OptionsPlanetByIdMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref PlanetByIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # ==================== Otros métodos ====================
+
+  GetHealthMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref HealthResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/health"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+
+  RootGetMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !GetAtt RestAPI.RootResourceId
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${NetworkLoadBalancer.DNSName}:8080/"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+
+  # ==================== Despliegue y Stage ====================
+
+  Deployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - GetItemsMethod
+      - PostPlanetMethod
+      - OptionsItemsMethod
+      - GetPlanetByIdMethod
+      - PutPlanetMethod
+      - DeletePlanetMethod
+      - OptionsPlanetByIdMethod
+      - GetHealthMethod
+      - RootGetMethod
+      
+    Properties:
+      RestApiId: !Ref RestAPI
+
+  Stage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      StageName: prod
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref Deployment
+
+  # ==================== API Key + Usage Plan ====================
+
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    DependsOn: Stage
+    Properties:
+      Name: PlanetasApiKey
+      Enabled: true
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: Stage
+    Properties:
+      UsagePlanName: PlanetasUsagePlan
+      ApiStages:
+        - ApiId: !Ref RestAPI
+          Stage: !Ref Stage
+      Throttle:
+        RateLimit: 10
+        BurstLimit: 5
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    DependsOn: UsagePlan
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+Outputs:
+  ApiUrl:
+    Description: URL de la API
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  ApiKeyValue:
+    Description: Clave para acceder al CRUD de planetas
+    Value: !Ref ApiKey
+
+  ClusterName:
+    Description: Nombre del cluster ECS
+    Value: !Ref ECSCluster
+
+  ServiceName:
+    Description: Nombre del servicio ECS
+    Value: !GetAtt ECSService.Name
+
+  NlbDns:
+    Description: DNS del NLB
+    Value: !GetAtt NetworkLoadBalancer.DNSName

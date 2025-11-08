@@ -1,0 +1,10 @@
+FROM public.ecr.aws/lambda/nodejs:20
+
+# Copiar archivos
+COPY index.js package.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Comando de entrada
+CMD ["index.handler"]

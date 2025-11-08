@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪐 Planetas API - Sistema Solar</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            margin-bottom: 30px;
+            animation: fadeInDown 0.8s ease;
+        }
+
+        h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        /* Config Panel */
+        .config-panel {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+            animation: fadeInUp 0.8s ease;
+        }
+
+        .config-panel.hidden {
+            display: none;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        input::placeholder, textarea::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .btn-small {
+            padding: 8px 20px;
+            font-size: 13px;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            animation: fadeIn 1.2s ease;
+        }
+
+        /* Planets Grid */
+        .planets-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+            animation: fadeIn 1.4s ease;
+        }
+
+        /* Planet Card */
+        .planet-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            animation: scaleIn 0.5s ease;
+        }
+
+        .planet-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .planet-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .planet-icon {
+            font-size: 4em;
+            margin-bottom: 10px;
+            display: block;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .planet-name {
+            font-size: 1.8em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .planet-type {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+
+        .type-terrestre {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .type-gaseoso {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        .type-enano {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+
+        .planet-info {
+            margin: 20px 0;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .info-label {
+            opacity: 0.8;
+            font-size: 0.9em;
+        }
+
+        .info-value {
+            font-weight: 600;
+        }
+
+        .planet-description {
+            margin: 15px 0;
+            font-size: 0.95em;
+            line-height: 1.5;
+            opacity: 0.9;
+            font-style: italic;
+        }
+
+        .planet-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .planet-actions .btn {
+            flex: 1;
+            margin: 0;
+            justify-content: center;
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            border-radius: 20px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            animation: scaleIn 0.3s ease;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close-modal:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: rotate(90deg);
+        }
+
+        /* Messages */
+        .message {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            animation: slideInRight 0.5s ease;
+        }
+
+        .message-success {
+            background: rgba(56, 239, 125, 0.3);
+            border-left: 4px solid #38ef7d;
+        }
+
+        .message-error {
+            background: rgba(235, 51, 73, 0.3);
+            border-left: 4px solid #eb3349;
+        }
+
+        .message-info {
+            background: rgba(102, 126, 234, 0.3);
+            border-left: 4px solid #667eea;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 60px 20px;
+            font-size: 1.3em;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(100px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 { font-size: 2em; }
+            .planets-grid { grid-template-columns: 1fr; }
+            .controls { flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🪐 Sistema Solar</h1>
+            <p class="subtitle">API de Gestión de Planetas</p>
+        </div>
+
+        <!-- Config Panel -->
+        <div class="config-panel" id="configPanel">
+            <h2>⚙️ Configuración</h2>
+            <div class="form-group">
+                <label>URL de tu API:</label>
+                <input type="text" id="apiUrl" placeholder="https://xxxxx.execute-api.us-east-1.amazonaws.com/prod">
+            </div>
+            <div class="form-group">
+                <label>API Key:</label>
+                <input type="password" id="apiKeyInput" placeholder="Ingresa tu API Key">
+            </div>
+            <button class="btn btn-success" onclick="saveConfig()">💾 Guardar y Conectar</button>
+            <button class="btn btn-primary" onclick="testConnection()">🔌 Probar Conexión</button>
+        </div>
+
+        <!-- Messages Container -->
+        <div id="messagesContainer"></div>
+
+        <!-- Controls -->
+        <div class="controls" id="controls" style="display: none;">
+            <button class="btn btn-success" onclick="showCreateModal()">➕ Nuevo Planeta</button>
+            <button class="btn btn-primary" onclick="loadPlanets()">🔄 Recargar</button>
+        </div>
+
+        <!-- Planets Grid -->
+        <div id="planetsContainer">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>Cargando planetas...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" id="planetModal">
+        <div class="modal-content">
+            <button class="close-modal" onclick="closeModal()">×</button>
+            <h2 id="modalTitle">🪐 Nuevo Planeta</h2>
+            <form id="planetForm" onsubmit="savePlanet(event)">
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" id="planetName" required>
+                </div>
+                <div class="form-group">
+                    <label>Tipo:</label>
+                    <select id="planetType" required>
+                        <option value="terrestre">🏔️ Terrestre</option>
+                        <option value="gaseoso">💨 Gaseoso</option>
+                        <option value="enano">⚪ Enano</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Diámetro (km):</label>
+                    <input type="number" id="planetDiameter" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Distancia al Sol (km):</label>
+                    <input type="number" id="planetDistance" required min="1">
+                </div>
+                <div class="form-group">
+                    <label>Descripción:</label>
+                    <textarea id="planetDescription" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>¿Tiene anillos?</label>
+                    <select id="planetRings">
+                        <option value="false">No</option>
+                        <option value="true">Sí</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Número de lunas:</label>
+                    <input type="number" id="planetMoons" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Año de descubrimiento (opcional):</label>
+                    <input type="number" id="planetYear" min="1600" max="2100" placeholder="Dejar vacío si es antiguo">
+                </div>
+                <button type="submit" class="btn btn-success">💾 Guardar Planeta</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let API_URL = '';
+        let API_KEY = '';
+        let currentPlanetId = null;
+        let allPlanets = [];
+
+        // Cargar config al iniciar
+        window.onload = function() {
+            loadConfig();
+        };
+
+        function loadConfig() {
+            API_URL = localStorage.getItem('api_url') || '';
+            API_KEY = localStorage.getItem('api_key') || '';
+            document.getElementById('apiUrl').value = API_URL;
+            document.getElementById('apiKeyInput').value = API_KEY;
+            
+            if (API_URL && API_KEY) {
+                document.getElementById('configPanel').classList.add('hidden');
+                document.getElementById('controls').style.display = 'flex';
+                loadPlanets();
+            }
+        }
+
+        function saveConfig() {
+            API_URL = document.getElementById('apiUrl').value.trim();
+            API_KEY = document.getElementById('apiKeyInput').value.trim();
+            
+            if (!API_URL || !API_KEY) {
+                showMessage('Por favor ingresa la URL y la API Key', 'error');
+                return;
+            }
+            
+            // Limpiar URL (quitar barra final si existe)
+            API_URL = API_URL.replace(/\/$/, '');
+            
+            localStorage.setItem('api_url', API_URL);
+            localStorage.setItem('api_key', API_KEY);
+            document.getElementById('configPanel').classList.add('hidden');
+            document.getElementById('controls').style.display = 'flex';
+            
+            showMessage('Configuración guardada ✅', 'success');
+            loadPlanets();
+        }
+
+        async function testConnection() {
+            const url = document.getElementById('apiUrl').value.trim();
+            const key = document.getElementById('apiKeyInput').value.trim();
+            
+            if (!url || !key) {
+                showMessage('Ingresa URL y API Key primero', 'error');
+                return;
+            }
+            
+            showMessage('Probando conexión...', 'info');
+            
+            try {
+                const response = await fetch(`${url}/health`, {
+                    headers: { 'x-api-key': key }
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showMessage(`✅ Conexión exitosa! Servicio: ${data.service}`, 'success');
+                } else {
+                    showMessage('❌ Error de conexión: ' + response.status, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        async function loadPlanets() {
+            if (!API_URL || !API_KEY) return;
+            
+            try {
+                document.getElementById('planetsContainer').innerHTML = '<div class="loading"><div class="spinner"></div><p>Cargando planetas...</p></div>';
+                
+                const response = await fetch(`${API_URL}/planets`, {
+                    headers: { 'x-api-key': API_KEY }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}`);
+                }
+                
+                allPlanets = await response.json();
+                displayPlanets(allPlanets);
+            } catch (error) {
+                showMessage('Error al cargar planetas: ' + error.message, 'error');
+                document.getElementById('planetsContainer').innerHTML = '<div class="loading"><p>❌ Error al cargar planetas</p></div>';
+            }
+        }
+
+        function displayPlanets(planets) {
+            const container = document.getElementById('planetsContainer');
+            
+            if (planets.length === 0) {
+                container.innerHTML = '<div class="loading"><p>📭 No hay planetas registrados. ¡Crea el primero!</p></div>';
+                return;
+            }
+            
+            container.innerHTML = planets.map(planet => `
+                <div class="planet-card">
+                    <div class="planet-header">
+                        <span class="planet-icon">${getPlanetIcon(planet.type)}</span>
+                        <div class="planet-name">${planet.name}</div>
+                        <span class="planet-type type-${planet.type}">${planet.type.toUpperCase()}</span>
+                    </div>
+                    
+                    <div class="planet-info">
+                        <div class="info-row">
+                            <span class="info-label">📏 Diámetro:</span>
+                            <span class="info-value">${formatNumber(planet.diameter_km)} km</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">☀️ Distancia al Sol:</span>
+                            <span class="info-value">${formatDistance(planet.distance_from_sun_km)}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">🌙 Lunas:</span>
+                            <span class="info-value">${planet.number_of_moons}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">💍 Anillos:</span>
+                            <span class="info-value">${planet.has_rings ? 'Sí ✓' : 'No ✗'}</span>
+                        </div>
+                        ${planet.discovered_year ? `
+                        <div class="info-row">
+                            <span class="info-label">🔭 Descubierto:</span>
+                            <span class="info-value">${planet.discovered_year}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${planet.description ? `
+                    <div class="planet-description">
+                        "${planet.description}"
+                    </div>
+                    ` : ''}
+                    
+                    <div class="planet-actions">
+                        <button class="btn btn-warning btn-small" onclick='editPlanet(${JSON.stringify(planet)})'>✏️ Editar</button>
+                        <button class="btn btn-danger btn-small" onclick="deletePlanet('${planet.id}', '${planet.name}')">🗑️ Eliminar</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function getPlanetIcon(type) {
+            const icons = {
+                'terrestre': '🌍',
+                'gaseoso': '🪐',
+                'enano': '☄️'
+            };
+            return icons[type] || '🌑';
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString('es-ES');
+        }
+
+        function formatDistance(km) {
+            const million = km / 1000000;
+            return million.toFixed(1) + ' millones km';
+        }
+
+        function showCreateModal() {
+            currentPlanetId = null;
+            document.getElementById('modalTitle').textContent = '🪐 Nuevo Planeta';
+            document.getElementById('planetForm').reset();
+            document.getElementById('planetModal').classList.add('show');
+        }
+
+        function editPlanet(planet) {
+            currentPlanetId = planet.id;
+            document.getElementById('modalTitle').textContent = '✏️ Editar Planeta';
+            document.getElementById('planetName').value = planet.name;
+            document.getElementById('planetType').value = planet.type;
+            document.getElementById('planetDiameter').value = planet.diameter_km;
+            document.getElementById('planetDistance').value = planet.distance_from_sun_km;
+            document.getElementById('planetDescription').value = planet.description || '';
+            document.getElementById('planetRings').value = planet.has_rings.toString();
+            document.getElementById('planetMoons').value = planet.number_of_moons;
+            document.getElementById('planetYear').value = planet.discovered_year || '';
+            document.getElementById('planetModal').classList.add('show');
+        }
+
+        async function savePlanet(event) {
+            event.preventDefault();
+            
+            const data = {
+                name: document.getElementById('planetName').value,
+                type: document.getElementById('planetType').value,
+                diameter_km: parseFloat(document.getElementById('planetDiameter').value),
+                distance_from_sun_km: parseFloat(document.getElementById('planetDistance').value),
+                description: document.getElementById('planetDescription').value,
+                has_rings: document.getElementById('planetRings').value === 'true',
+                number_of_moons: parseInt(document.getElementById('planetMoons').value),
+                discovered_year: document.getElementById('planetYear').value ? parseInt(document.getElementById('planetYear').value) : null
+            };
+            
+            try {
+                let response;
+                if (currentPlanetId) {
+                    // Actualizar
+                    response = await fetch(`${API_URL}/planets/${currentPlanetId}`, {
+                        method: 'PUT',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-api-key': API_KEY
+                        },
+                        body: JSON.stringify(data)
+                    });
+                } else {
+                    // Crear
+                    response = await fetch(`${API_URL}/planets`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'x-api-key': API_KEY
+                        },
+                        body: JSON.stringify(data)
+                    });
+                }
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Error al guardar');
+                }
+                
+                showMessage(currentPlanetId ? '✅ Planeta actualizado' : '✅ Planeta creado', 'success');
+                closeModal();
+                loadPlanets();
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        async function deletePlanet(id, name) {
+            if (!confirm(`¿Eliminar el planeta ${name}?`)) return;
+            
+            try {
+                const response = await fetch(`${API_URL}/planets/${id}`, {
+                    method: 'DELETE',
+                    headers: { 'x-api-key': API_KEY }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Error al eliminar');
+                }
+                
+                showMessage(`✅ ${name} eliminado correctamente`, 'success');
+                loadPlanets();
+            } catch (error) {
+                showMessage('Error: ' + error.message, 'error');
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('planetModal').classList.remove('show');
+        }
+
+        function showMessage(text, type) {
+            const container = document.getElementById('messagesContainer');
+            const message = document.createElement('div');
+            message.className = `message message-${type}`;
+            message.textContent = text;
+            container.appendChild(message);
+            
+            setTimeout(() => {
+                message.remove();
+            }, 5000);
+        }
+
+        // Cerrar modal con Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+    </script>
+</body>
+</html>
