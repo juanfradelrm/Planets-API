@@ -10,11 +10,6 @@ exports.handler = async (event) => {
 
   try {
     const dynamoDB = new DynamoDB.DocumentClient();
-    
-    // Obtener query parameters para filtros y ordenamiento
-    const queryParams = event.queryStringParameters || {};
-    const sortBy = queryParams.sort_by || 'distance';
-    const typeFilter = queryParams.type;
 
     const params = {
       TableName: TABLE_NAME
@@ -22,24 +17,6 @@ exports.handler = async (event) => {
 
     const result = await dynamoDB.scan(params).promise();
     let planets = result.Items || [];
-
-    // Filtrar por tipo si se especifica
-    if (typeFilter && typeFilter !== 'all') {
-      planets = planets.filter(p => p.type === typeFilter);
-    }
-
-    // Ordenar según el criterio
-    planets.sort((a, b) => {
-      switch (sortBy) {
-        case 'diameter':
-          return (b.diameter_km || 0) - (a.diameter_km || 0);
-        case 'name':
-          return (a.name || '').localeCompare(b.name || '');
-        case 'distance':
-        default:
-          return (a.distance_from_sun_km || 0) - (b.distance_from_sun_km || 0);
-      }
-    });
 
     return {
       statusCode: 200,

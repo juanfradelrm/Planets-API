@@ -5,7 +5,7 @@ class Planet {
   constructor(data) {
     this.id = data.id || uuidv4();
     this.name = data.name;
-    this.type = data.type; // terrestre, gaseoso, enano
+    this.type = data.type;
     this.diameter_km = data.diameter_km;
     this.distance_from_sun_km = data.distance_from_sun_km;
     this.description = data.description || '';

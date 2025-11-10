@@ -6,7 +6,7 @@ const { dynamoDB, TABLE_NAME } = require('../config/dynamodb');
 exports.createPlanet = async (req, res) => {
   try {
     const planet = new Planet(req.body);
-    
+
     // Validar
     const validation = planet.validate();
     if (!validation.isValid) {
@@ -39,19 +39,9 @@ exports.getAllPlanets = async (req, res) => {
     };
 
     const result = await dynamoDB.scan(params).promise();
-    let planets = result.Items || [];
+    const planets = result.Items || [];
 
-    // Ordenar por distancia al sol (por defecto)
-    const sortBy = req.query.sort_by || 'distance';
-    
-    if (sortBy === 'distance') {
-      planets.sort((a, b) => a.distance_from_sun_km - b.distance_from_sun_km);
-    } else if (sortBy === 'diameter') {
-      planets.sort((a, b) => b.diameter_km - a.diameter_km);
-    } else if (sortBy === 'name') {
-      planets.sort((a, b) => a.name.localeCompare(b.name));
-    }
-
+    // Sin ordenar
     res.json(planets);
   } catch (error) {
     console.error('Error getting planets:', error);
@@ -85,7 +75,7 @@ exports.getPlanetById = async (req, res) => {
 // Actualizar un planeta
 exports.updatePlanet = async (req, res) => {
   try {
-    // Primero verificar que existe
+    // Verificar que existe
     const getParams = {
       TableName: TABLE_NAME,
       Key: { id: req.params.id }
@@ -106,17 +96,16 @@ exports.updatePlanet = async (req, res) => {
     const expressionAttributeNames = {};
 
     Object.keys(updates).forEach((key, index) => {
-      if (key !== 'id') { // No actualizar el ID
+      if (key !== 'id') {
         const placeholder = `:val${index}`;
         const namePlaceholder = `#attr${index}`;
-        
         updateExpression += `${namePlaceholder} = ${placeholder}, `;
         expressionAttributeValues[placeholder] = updates[key];
         expressionAttributeNames[namePlaceholder] = key;
       }
     });
 
-    updateExpression = updateExpression.slice(0, -2); // Quitar última coma
+    updateExpression = updateExpression.slice(0, -2);
 
     const updateParams = {
       TableName: TABLE_NAME,
@@ -138,7 +127,6 @@ exports.updatePlanet = async (req, res) => {
 // Eliminar un planeta
 exports.deletePlanet = async (req, res) => {
   try {
-    // Verificar que existe
     const getParams = {
       TableName: TABLE_NAME,
       Key: { id: req.params.id }
@@ -149,7 +137,6 @@ exports.deletePlanet = async (req, res) => {
       return res.status(404).json({ error: 'Planeta no encontrado' });
     }
 
-    // Eliminar
     const deleteParams = {
       TableName: TABLE_NAME,
       Key: { id: req.params.id }

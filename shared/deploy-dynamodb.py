@@ -63,7 +63,6 @@ if __name__ == "__main__":
     print("========== DEPLOY DB COMPARTIDA ==========")
     deploy_stack(STACK_NAME, TEMPLATE_FILE)
     
-    # Obtener información de la tabla
     response = cf.describe_stacks(StackName=STACK_NAME)
     table_name = next(
         o['OutputValue'] for o in response['Stacks'][0]['Outputs'] 

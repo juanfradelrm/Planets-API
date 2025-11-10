@@ -1,5 +1,5 @@
 {
-  "name": "planetas-api",
+  "name": "planetas-api-desacoplada",
   "version": "1.0.0",
   "description": "API de gestión de planetas con Node.js y AWS",
   "main": "server.js",
@@ -9,7 +9,7 @@
     "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": ["aws", "planetas", "api", "rest"],
-  "author": "J.F Del Rosario Machin",
+  "author": "Juan.F Del Rosario Machin",
   "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
