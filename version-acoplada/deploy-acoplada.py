@@ -48,6 +48,7 @@ if not vpcs["Vpcs"]:
     sys.exit(1)
 
 vpc_id = vpcs["Vpcs"][0]["VpcId"]
+vpc_cidr = vpcs["Vpcs"][0]["CidrBlock"]
 
 subnets = ec2.describe_subnets(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}])
 all_subnets = [s["SubnetId"] for s in subnets["Subnets"]]
@@ -146,7 +147,8 @@ deploy_stack(
         {"ParameterKey": "VpcId", "ParameterValue": vpc_id},
         {"ParameterKey": "SubnetIds", "ParameterValue": ",".join(all_subnets)},
         {"ParameterKey": "VpcLinkSubnetIds", "ParameterValue": ",".join(vpc_link_subnets)},
-        {"ParameterKey": "ImageUri", "ParameterValue": f"{repository_uri}:latest"}
+        {"ParameterKey": "ImageUri", "ParameterValue": f"{repository_uri}:latest"},
+        {"ParameterKey": "VpcCidr", "ParameterValue": vpc_cidr},
     ]
 )
 
